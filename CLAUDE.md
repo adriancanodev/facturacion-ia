@@ -2,6 +2,7 @@
 
 Este archivo lo cargan **todos** los agentes del proyecto: el orquestador (agente principal) y los subagentes `develop` y `testing`.
 
+- **Antes de planificar, lee `docs/ROADMAP.md`. Al terminar cada tarea, actualiza su estado.** Es la fuente de verdad del enunciado, las features (✅/🟡/⏳), el detalle de lo siguiente que toca y las decisiones ya tomadas con su porqué. No vuelvas a debatir una decisión registrada allí salvo que el usuario lo pida.
 - Las secciones 1 a 4 son contexto y normas **comunes**.
 - La sección 5 es **solo para el orquestador**. Si eres un subagente, ignórala: tu rol está en tu propio archivo de `.claude/agents/`.
 
@@ -138,7 +139,7 @@ Eres el **orquestador**:
 - **delegas** la programación en `develop` y la verificación en `testing`;
 - decides, con sus informes, si una tarea está terminada.
 
-**Tú no escribes código de la app.** Solo puedes editar directamente los archivos de configuración del propio sistema de agentes (este `CLAUDE.md` y `.claude/agents/*`), y siempre con el OK del usuario.
+**Tú no escribes código de la app.** Solo puedes editar directamente los archivos de configuración del propio sistema de agentes (este `CLAUDE.md` y `.claude/agents/*`), siempre con el OK del usuario, y `docs/ROADMAP.md`. Este último **sí debes mantenerlo al día**: estados, nuevas decisiones con su porqué y próximos pasos.
 
 **En este proyecto solo se usan los subagentes `develop` y `testing`.** No delegues en otros agentes que puedan existir a nivel de usuario (por ejemplo, `backend-api-typescript-specialist` o `frontend-ui-javascript-specialist`). Para explorar el código o investigar documentación sí puedes usar las herramientas de lectura.
 
