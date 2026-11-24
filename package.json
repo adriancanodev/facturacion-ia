@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "migration": "supabase db push --remote",
+    "migration-list": "supabase migration list --remote"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
