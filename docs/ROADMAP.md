@@ -45,19 +45,20 @@ Requisitos:
   - `seed_demo_data()` (security invoker) y `delete_my_demo_account()` (security definer);
   - tarea de pg_cron `limpiar-usuarios-demo`, que cada hora borra los usuarios anónimos de más de 24 h.
   - Ya **aplicada** en remoto. Scripts `npm run migration` y `npm run migration-list`.
-- 🟡 **Pendiente de aplicar: `git stash` "feature acceso: tipos de BD…"**, con `src/types/database.ts` y los clientes de Supabase tipados con `<Database>`. Se aplica con `git stash pop` (lo hace el usuario).
-- ⏳ **1.3 Server Actions** (`src/lib/auth/actions.ts`):
-  - `startDemo()`: `signInAnonymously()` → `rpc('seed_demo_data')` → `redirect('/dashboard')`. Si Supabase devuelve el límite de peticiones (429), un mensaje amable en español.
-  - `endDemo()`: `rpc('delete_my_demo_account')` → `signOut()` → `redirect('/')`.
-  - `src/lib/auth/session.ts` → `requireUser()`: usa `auth.getUser()`, no `getClaims()`, porque detecta usuarios ya borrados. Si no hay usuario, redirige a `/`. Lo reutilizarán **todas** las Server Actions.
+- ✅ **Stash "feature acceso: tipos de BD…" aplicado** (`git stash pop`): `src/types/database.ts` y los clientes de Supabase tipados con `<Database>`.
+- ✅ **1.3 Server Actions** (`src/lib/auth/actions.ts`, tipo del estado en `src/lib/auth/types.ts`). Aprobado por `testing` en la vuelta 1:
+  - `startDemo(prevState, formData)`, para `useActionState`: si ya hay usuario → `/dashboard` (doble clic); `signInAnonymously()` → `rpc('seed_demo_data')` → `redirect('/dashboard')`. Con un 429 (`status === 429` o `code === 'over_request_rate_limit'`), un mensaje amable en español. Si falla el seed, limpia (borra la cuenta + `signOut`) y devuelve un error.
+  - `endDemo()`: `requireUser()` → `rpc('delete_my_demo_account')` → `signOut({ scope: 'local' })` → `redirect('/')`. Si el borrado falla, cierra la sesión igualmente (el cron la limpia en 24 h).
+  - `src/lib/auth/session.ts` (sin `"use server"`, para no exponerlo como endpoint) → `requireUser()`: usa `auth.getUser()`, no `getClaims()`, porque detecta usuarios ya borrados. Si no hay usuario, redirige a `/`. Lo reutilizarán **todas** las Server Actions.
 - ⏳ **1.4 Proxy** (`src/lib/supabase/proxy.ts`), después de `getClaims()`:
   - sin sesión y en una ruta privada → `/`;
   - con sesión y en `/` → `/dashboard`.
   - Copiar las cookies de sesión a la respuesta de redirección. Ruta pública: solo `/`.
+  - Observación de `testing` en la 1.3: si el cron borró al usuario pero el navegador conserva cookies, `requireUser()` redirige a `/` sin limpiarlas. Valorar limpiarlas aquí.
 - ⏳ **1.5 Interfaz mínima:**
   - **Portada `src/app/page.tsx`:**
     - qué es la app;
-    - botón "Probar la demo" (`<form action={startDemo}>`), con estado de carga (`useFormStatus`) y mensaje de error;
+    - botón "Probar la demo" (`<form action={startDemo}>`), con estado de carga y mensaje de error mediante `useActionState` (ver D-A7);
     - aviso: "Se crea una cuenta temporal con datos ficticios que se borra al salir o en 24 h".
   - **`src/app/dashboard/page.tsx` provisional:**
     - cabecera con el nombre del perfil demo y el botón "Salir";
@@ -136,6 +137,11 @@ Requisitos:
   2. `requireUser()` (`getUser()`) en cada Server Action;
   3. RLS en cada tabla.
   - Borrar un usuario no invalida al momento su JWT, que dura hasta 1 h. Por eso las acciones usan `getUser()`.
+  - `startDemo` es la excepción intencionada a `requireUser()`: es la acción que crea la sesión.
+- **D-A7 · `useActionState` en vez de `useFormStatus` para el botón de la demo.**
+  - **Por qué:** la guía de formularios de Next 16 lo recomienda para mostrar errores devueltos por la acción, y ya da `pending`, así que un solo hook basta.
+- **D-A8 · `signOut({ scope: 'local' })` al salir.**
+  - **Por qué:** borra las cookies antes de llamar a Supabase. Con `global`, un error de red o un 5xx conserva la sesión (`GoTrueClient._signOut`, auth-js 2.119.2). La cuenta anónima solo tiene una sesión y acaba de borrarse.
 
 ### B. Modelo de datos
 - **D-B0 · El modelo se crea por features.** Cada feature añade solo las tablas y columnas que necesita, en su propia migración.
@@ -182,7 +188,9 @@ Requisitos:
    - preguntar el rol;
    - pedir a `testing` una auditoría de la migración `demo_access` y de `src/lib/supabase/` contra las directrices;
    - y/o un ciclo completo pequeño: añadir el script `npm run types` = `supabase gen types typescript --remote --schema public > src/types/database.ts`.
-2. ⏳ Aplicar el stash (el usuario) y continuar con la **feature 1.3**.
+2. ✅ Stash aplicado y **feature 1.3** terminada.
+3. ⏳ **Feature 1.4: proxy.**
+4. ✅ `server-only` importado en `session.ts` (el build falla si un componente cliente lo importa) y regla `@typescript-eslint/no-unused-vars` con el patrón `^_` en `eslint.config.mjs` (el prefijo `_` = "no usado a propósito").
 
 ---
 

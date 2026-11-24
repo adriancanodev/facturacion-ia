@@ -32,8 +32,9 @@ Reglas de Next.js 16 para agentes (generadas por `next dev`, de obligado cumplim
 - 🟡 **Feature 1, acceso demo:**
   - ✅ 1.1 CLI y vínculo;
   - ✅ 1.2 migración `demo_access` aplicada (`business_profiles`, `seed_demo_data()`, `delete_my_demo_account()` y cron de limpieza).
-  - Hay un `git stash` con `src/types/database.ts` y los clientes tipados con `<Database>`: **pendiente de aplicar**.
-  - Siguiente: 1.3, Server Actions `startDemo` y `endDemo`.
+  - ✅ Tipos de BD en `src/types/database.ts` y clientes tipados con `<Database>`.
+  - ✅ 1.3 Server Actions `startDemo` y `endDemo` y `requireUser()` (`src/lib/auth/`).
+  - Siguiente: 1.4, proxy (redirecciones según la sesión).
 - ⏳ **Pendiente:**
   - clientes → presupuestos → facturas → PDF → panel → IA → integraciones;
   - responsive y tests e2e;
