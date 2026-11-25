@@ -50,11 +50,14 @@ Requisitos:
   - `startDemo(prevState, formData)`, para `useActionState`: si ya hay usuario → `/dashboard` (doble clic); `signInAnonymously()` → `rpc('seed_demo_data')` → `redirect('/dashboard')`. Con un 429 (`status === 429` o `code === 'over_request_rate_limit'`), un mensaje amable en español. Si falla el seed, limpia (borra la cuenta + `signOut`) y devuelve un error.
   - `endDemo()`: `requireUser()` → `rpc('delete_my_demo_account')` → `signOut({ scope: 'local' })` → `redirect('/')`. Si el borrado falla, cierra la sesión igualmente (el cron la limpia en 24 h).
   - `src/lib/auth/session.ts` (sin `"use server"`, para no exponerlo como endpoint) → `requireUser()`: usa `auth.getUser()`, no `getClaims()`, porque detecta usuarios ya borrados. Si no hay usuario, redirige a `/`. Lo reutilizarán **todas** las Server Actions.
-- ⏳ **1.4 Proxy** (`src/lib/supabase/proxy.ts`), después de `getClaims()`:
+- ✅ **1.4 Proxy** (`src/lib/supabase/proxy.ts`). Aprobado por `testing` (vuelta 1, más una vuelta 2 de mejoras pedida por el usuario). `getClaims()` en cada petición y después:
   - sin sesión y en una ruta privada → `/`;
-  - con sesión y en `/` → `/dashboard`.
-  - Copiar las cookies de sesión a la respuesta de redirección. Ruta pública: solo `/`.
-  - Observación de `testing` en la 1.3: si el cron borró al usuario pero el navegador conserva cookies, `requireUser()` redirige a `/` sin limpiarlas. Valorar limpiarlas aquí.
+  - con sesión y en `/` → `/dashboard`, pero solo si `getUser()` lo confirma. Si el usuario ya no existe, `signOut({ scope: 'local' })` y se muestra `/` (evita el bucle `/` ↔ `/dashboard`, ver D-A9). Ante un fallo de red no se borra la sesión.
+  - `setAll` no crea una respuesta en cada llamada: acumula las cookies (un Map por nombre) y las cabeceras anti-caché de `@supabase/ssr`, y la respuesta (`next` o `redirect`) se construye una sola vez al final.
+    - **Por qué:** `@supabase/ssr` solo envía las cabeceras en la primera llamada a `setAll` y no repite cookies ya escritas en `request.cookies`, así que con una respuesta nueva por llamada se perdían.
+  - Ruta pública: solo `/`.
+  - Solo se redirigen peticiones GET/HEAD (ver D-A10).
+  - Pendiente: probar con una sesión real al terminar la 1.5. Excluir del `matcher` `robots.txt`, `sitemap.xml`, etc. cuando existan.
 - ⏳ **1.5 Interfaz mínima:**
   - **Portada `src/app/page.tsx`:**
     - qué es la app;
@@ -140,6 +143,11 @@ Requisitos:
   - `startDemo` es la excepción intencionada a `requireUser()`: es la acción que crea la sesión.
 - **D-A7 · `useActionState` en vez de `useFormStatus` para el botón de la demo.**
   - **Por qué:** la guía de formularios de Next 16 lo recomienda para mostrar errores devueltos por la acción, y ya da `pending`, así que un solo hook basta.
+- **D-A9 · El proxy confirma con `getUser()` solo al entrar en `/` con sesión.**
+  - **Por qué:** el JWT de un usuario borrado por el cron sigue siendo válido hasta 1 h. Con `getClaims()` solo, `/` → `/dashboard` → `requireUser()` → `/` sería un bucle. Hacerlo solo en `/` mantiene rápidas el resto de rutas.
+  - Se llama siempre, sin intentar deducir si `getClaims()` ya lo hizo por dentro, para no depender de detalles internos de auth-js. Coste aceptado: con tokens HS* o sin `kid` hay dos llamadas a Auth al entrar en `/` con sesión.
+- **D-A10 · El proxy solo redirige GET/HEAD.**
+  - **Por qué:** las Server Actions son POST (`proxy.md`) y pueden llegar sin la cabecera `Next-Action`: un formulario enviado sin JS (`server-action-request-meta.js`). Redirigirlas las rompería; ya se protegen con `requireUser()`.
 - **D-A8 · `signOut({ scope: 'local' })` al salir.**
   - **Por qué:** borra las cookies antes de llamar a Supabase. Con `global`, un error de red o un 5xx conserva la sesión (`GoTrueClient._signOut`, auth-js 2.119.2). La cuenta anónima solo tiene una sesión y acaba de borrarse.
 
@@ -189,7 +197,7 @@ Requisitos:
    - pedir a `testing` una auditoría de la migración `demo_access` y de `src/lib/supabase/` contra las directrices;
    - y/o un ciclo completo pequeño: añadir el script `npm run types` = `supabase gen types typescript --remote --schema public > src/types/database.ts`.
 2. ✅ Stash aplicado y **feature 1.3** terminada.
-3. ⏳ **Feature 1.4: proxy.**
+3. ✅ **Feature 1.4: proxy.** Siguiente: **1.5, interfaz mínima.**
 4. ✅ `server-only` importado en `session.ts` (el build falla si un componente cliente lo importa) y regla `@typescript-eslint/no-unused-vars` con el patrón `^_` en `eslint.config.mjs` (el prefijo `_` = "no usado a propósito").
 
 ---
