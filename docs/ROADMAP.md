@@ -58,7 +58,7 @@ Requisitos:
   - Ruta pública: solo `/`.
   - Solo se redirigen peticiones GET/HEAD (ver D-A10).
   - Pendiente: probar con una sesión real al terminar la 1.5. Excluir del `matcher` `robots.txt`, `sitemap.xml`, etc. cuando existan.
-- ⏳ **1.5 Interfaz mínima:**
+- ✅ **1.5 Interfaz mínima** (aprobada por `testing` en la vuelta 1; falta la verificación manual de abajo). Build: `○ /` (estática) y `◐ /dashboard` (PPR). Solo los botones son componentes cliente (`src/components/auth/`). Observaciones para el panel definitivo: registrar el `code` si falla la lectura del perfil; el banner no necesita `role="status"`; los SVG de la plantilla en `public/` ya no se usan.
   - **Portada `src/app/page.tsx`:**
     - qué es la app;
     - botón "Probar la demo" (`<form action={startDemo}>`), con estado de carga y mensaje de error mediante `useActionState` (ver D-A7);
@@ -183,6 +183,9 @@ Requisitos:
 - **D-C1 · Funciones de Vercel en `arn1` (Estocolmo)**, junto a Supabase (`eu-north-1`), fijadas en `vercel.json`.
 - **D-C2 · Sin la integración Supabase de Vercel.** Ya existía un proyecto, los nombres de las variables no coinciden con los nuestros, e inyectaría la clave `service_role`.
 - **D-C3 · `cacheComponents` activado:** leer la sesión obliga a usar `<Suspense>`.
+- **D-C5 · `await connection()` al principio de `requireUser()`.**
+  - **Por qué:** con `partialPrefetching`, Next prerenderiza el App Shell con las cookies de la sesión, y supabase-js compara `Date.now()` con la caducidad del token. Eso da el error "unstable value `Date.now()` while prerendering". `connection()` obliga a que la comprobación de sesión se haga en una petición real; en las Server Actions se resuelve al instante.
+  - Descartados: `"use cache: private"`, porque cachearía la comprobación de sesión (choca con D-A6); `io()`, porque se resuelve en silencio dentro de `"use cache"`, mientras que `connection()` da error y así protege. Desactivar `partialPrefetching` solo tapaba el síntoma.
 - **D-C4 · Sin Docker:** las migraciones se aplican directamente al proyecto remoto con `npm run migration`. Solo las aplica el usuario.
 
 ### D. Proceso
@@ -197,8 +200,9 @@ Requisitos:
    - pedir a `testing` una auditoría de la migración `demo_access` y de `src/lib/supabase/` contra las directrices;
    - y/o un ciclo completo pequeño: añadir el script `npm run types` = `supabase gen types typescript --remote --schema public > src/types/database.ts`.
 2. ✅ Stash aplicado y **feature 1.3** terminada.
-3. ✅ **Feature 1.4: proxy.** Siguiente: **1.5, interfaz mínima.**
+3. ✅ **Feature 1.4: proxy.** ✅ **1.5: interfaz mínima.**
 4. ✅ `server-only` importado en `session.ts` (el build falla si un componente cliente lo importa) y regla `@typescript-eslint/no-unused-vars` con el patrón `^_` en `eslint.config.mjs` (el prefijo `_` = "no usado a propósito").
+5. ⏳ **Verificación manual de la Feature 1** (el usuario, en local y en producción). Después se marca la Feature 1 como ✅ y se pasa a la **Feature 2 (Clientes)**.
 
 ---
 

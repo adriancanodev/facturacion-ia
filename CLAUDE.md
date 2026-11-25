@@ -35,7 +35,8 @@ Reglas de Next.js 16 para agentes (generadas por `next dev`, de obligado cumplim
   - ✅ Tipos de BD en `src/types/database.ts` y clientes tipados con `<Database>`.
   - ✅ 1.3 Server Actions `startDemo` y `endDemo` y `requireUser()` (`src/lib/auth/`).
   - ✅ 1.4 proxy (redirecciones según la sesión).
-  - Siguiente: 1.5, interfaz mínima (portada y `/dashboard` provisional).
+  - ✅ 1.5 interfaz mínima (portada estática y `/dashboard` provisional con PPR).
+  - Siguiente: verificación manual de la Feature 1 (el usuario) y después la Feature 2 (Clientes).
 - ⏳ **Pendiente:**
   - clientes → presupuestos → facturas → PDF → panel → IA → integraciones;
   - responsive y tests e2e;
