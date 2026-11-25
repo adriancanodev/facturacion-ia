@@ -36,7 +36,7 @@ Requisitos:
 
 ## 2. Features del MVP
 
-### Feature 1 · Acceso con cuenta demo efímera 🟡
+### Feature 1 · Acceso con cuenta demo efímera ✅
 **Qué:** el botón "Probar la demo" crea un **usuario anónimo** de Supabase (`signInAnonymously()`) con datos de ejemplo. Al pulsar "Salir" se borra. Si quiere volver a probar, se crea otro usuario. **No hay login con email.**
 
 - ✅ **1.1 CLI de Supabase:** `supabase` como dependencia de desarrollo, `supabase init` y `link` al proyecto. Anonymous sign-ins activados en el panel. "Confirm email" se deja activado a propósito (ver la decisión D-A3).
@@ -202,7 +202,9 @@ Requisitos:
 2. ✅ Stash aplicado y **feature 1.3** terminada.
 3. ✅ **Feature 1.4: proxy.** ✅ **1.5: interfaz mínima.**
 4. ✅ `server-only` importado en `session.ts` (el build falla si un componente cliente lo importa) y regla `@typescript-eslint/no-unused-vars` con el patrón `^_` en `eslint.config.mjs` (el prefijo `_` = "no usado a propósito").
-5. ⏳ **Verificación manual de la Feature 1** (el usuario, en local y en producción). Después se marca la Feature 1 como ✅ y se pasa a la **Feature 2 (Clientes)**.
+5. ✅ **Verificación manual de la Feature 1** en local por el usuario (entrar, incógnito, dos ventanas, salir, usuario borrado sin bucle). Commit `605eb23` subido.
+6. ⏳ **Feature 2 (Clientes).**
+7. ⏳ Diseño: `globals.css` conserva de la plantilla `font-family: Arial, Helvetica` y sobrescribe Geist; revisarlo cuando se haga el diseño definitivo.
 
 ---
 
