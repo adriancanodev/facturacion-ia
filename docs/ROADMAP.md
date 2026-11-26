@@ -87,7 +87,13 @@ Requisitos:
   - 92 tests.
   - Nota: Vitest 5 exige `@types/node` ≥22 (el proyecto tiene ^20). Instalar Vitest con npm 10.9 falla (`edgesOut`); se instaló con `npx npm@11`, y el lock es reproducible con `npm ci` de npm 10 (comprobado).
   - Mejora posible: un DNI sin el cero inicial (`1234567L`) se rechaza; se podría rellenar con ceros o explicarlo en el mensaje.
-- ⏳ **2.3 Server Actions** `createClient` y `updateClient` (`requireUser()` + Zod).
+- ✅ **2.3 Server Actions** `createClientAction` y `updateClientAction` (`src/lib/clients/actions.ts`, tipos en `types.ts`). Aprobada por `testing` en la vuelta 1.
+  - `requireUser()` primero, Zod antes de la BD y sin `user_id` (lo pone `default auth.uid()`).
+  - NIF duplicado → error `23505` en el campo `tax_id`, sin `select` previo.
+  - Devuelven `values` en cada error, porque React 19 resetea el formulario tras la acción.
+  - Edición con `.bind(null, id)`: el id se valida como UUID (`.bind` no cifra) y 0 filas → "Cliente no encontrado".
+  - `revalidatePath("/clientes", "layout")` antes del `redirect`, para invalidar la caché de atrás/adelante del router (ver D-C6).
+  - Para la 2.4: el estado inicial del formulario de edición se construye desde la fila (`null` → `""`). Si se añade otro `unique` a `clients`, comprobar el nombre de la constraint en el `23505`.
 - ⏳ **2.4 Interfaz:** `/clientes` (listado + búsqueda GET `?q=`), `/clientes/nuevo`, `/clientes/[id]/editar` y enlace desde el dashboard.
   - Trampa: escapar la entrada de la búsqueda en `.or(...)` de PostgREST (comas y paréntesis) y los comodines `%`/`_` de `ilike`.
 
@@ -208,6 +214,8 @@ Requisitos:
 - **D-C5 · `await connection()` al principio de `requireUser()`.**
   - **Por qué:** con `partialPrefetching`, Next prerenderiza el App Shell con las cookies de la sesión, y supabase-js compara `Date.now()` con la caducidad del token. Eso da el error "unstable value `Date.now()` while prerendering". `connection()` obliga a que la comprobación de sesión se haga en una petición real; en las Server Actions se resuelve al instante.
   - Descartados: `"use cache: private"`, porque cachearía la comprobación de sesión (choca con D-A6); `io()`, porque se resuelve en silencio dentro de `"use cache"`, mientras que `connection()` da error y así protege. Desactivar `partialPrefetching` solo tapaba el síntoma.
+- **D-C6 · `revalidatePath` tras escribir, aunque no haya `"use cache"`.**
+  - **Por qué:** el `redirect` ya trae el destino con datos frescos, pero el router del navegador guarda las páginas para atrás/adelante y solo las descarta si la acción revalida (`server-action-reducer.js`, `invalidateBfCache`). Sin él, "Atrás" mostraría datos viejos.
 - **D-C4 · Sin Docker:** las migraciones se aplican directamente al proyecto remoto con `npm run migration`. Solo las aplica el usuario.
 
 ### D. Proceso
@@ -225,7 +233,7 @@ Requisitos:
 3. ✅ **Feature 1.4: proxy.** ✅ **1.5: interfaz mínima.**
 4. ✅ `server-only` importado en `session.ts` (el build falla si un componente cliente lo importa) y regla `@typescript-eslint/no-unused-vars` con el patrón `^_` en `eslint.config.mjs` (el prefijo `_` = "no usado a propósito").
 5. ✅ **Verificación manual de la Feature 1** en local por el usuario (entrar, incógnito, dos ventanas, salir, usuario borrado sin bucle). Commit `605eb23` subido.
-6. 🟡 **Feature 2 (Clientes):** siguiente, 2.3 (Server Actions).
+6. 🟡 **Feature 2 (Clientes):** siguiente, 2.4 (interfaz).
 7. ⏳ Diseño: `globals.css` conserva de la plantilla `font-family: Arial, Helvetica` y sobrescribe Geist; revisarlo cuando se haga el diseño definitivo.
 
 ---
