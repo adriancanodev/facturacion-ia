@@ -117,7 +117,7 @@ Requisitos:
   - `quote-status.ts`: transiciones, `isEditable`/`isDeletable` y etiquetas.
   - Para la 3.3/3.4: supabase-js devuelve `numeric` como número JSON → pasarlo por `String()` + el parser; "1.234" se rechaza por tener 3 decimales (no hay separador de miles); `computeQuoteTotals` lanza con datos inválidos (en vivo, calcular solo lo válido).
   - Endurecimientos posibles (no aplicados): limitar la longitud del texto numérico antes de `BigInt` y los dígitos del índice de línea.
-- 🟡 **3.2 Migración** `20261126155847_quotes.sql` (aprobada por `testing`, que la ensayó en un Postgres local con concurrencia, aislamiento y cascade; pendiente de que el usuario la aplique y de regenerar los tipos):
+- ✅ **3.2 Migración** `20261126155847_quotes.sql` (aprobada por `testing`, que la ensayó en un Postgres local con concurrencia, aislamiento y cascade; aplicada en remoto):
   - `document_counters`: sin acceso directo (RLS sin políticas + `revoke`); solo `private.next_document_number()` (security definer). Está en el esquema `private` para que PostgREST no la exponga y nadie pueda quemar números (ver D-B20);
   - `quotes`: FK compuesta con `clients` (`on delete no action`, compatible con la cascada del usuario), checks de coherencia de totales y delete solo en `draft`;
   - `quote_lines`: RLS vía el padre; insert/delete solo con el padre en `draft`; update/truncate revocados;
@@ -125,7 +125,13 @@ Requisitos:
   - seed: P-0001 aceptado (1.678,24 €), P-0002 enviado (1.376,92 €) y P-0003 borrador (452,39 €); totales verificados con `computeQuoteTotals`.
   - Mejora posible: un trigger que valide las transiciones y congele la cabecera fuera de `draft` (hoy un usuario puede saltárselas por la API directa en sus propios presupuestos; sin efecto legal). Será el mismo patrón que el bloqueo de facturas de la Feature 4.
   - Para la 3.3: enviar siempre 2 decimales (`toDecimalString`), porque `numeric` redondearía en silencio.
-- ⏳ **3.3 Server Actions:** crear, editar (solo borrador), cambiar de estado y borrar (solo borrador).
+- ✅ **3.3 Server Actions** (`src/lib/quotes/actions.ts`, aprobada por `testing` en la vuelta 1; 380 tests):
+  - `createQuoteAction` y `updateQuoteAction(id, …)`: Zod → `computeQuoteTotals` (siempre en el servidor) → `rpc save_quote` con los importes como texto de 2 decimales → `revalidatePath` + `redirect('/presupuestos/<id>')`;
+  - `changeQuoteStatusAction(id, to, …)` y `deleteQuoteAction(id, …)` para `useActionState`, con concurrencia optimista (`.eq('status', actual)`). Al cambiar de estado solo se revalida (sin redirect); al borrar se redirige al listado;
+  - errores traducidos: FK `23503` → campo cliente; `quote_lines_required`, `quote_not_editable`, `not_authenticated` → `redirect('/')`;
+  - `src/lib/domain/quote-form.ts`: valores del formulario como texto, errores por línea y `numeric` → texto sin float (`String()` + parser).
+  - El cast en `callSaveQuote` está justificado: los tipos generados marcan los `numeric` como `number` y no admiten null. `testing` comprobó los 11 parámetros a mano contra el SQL. Mejora posible: una aserción de tipo de las claves, o `default null` en una migración futura.
+  - Para la 3.4: poner la fecha de hoy por defecto; pintar al menos una línea si llega `lines: []`.
 - ⏳ **3.4 Interfaz:** listado, editor con líneas dinámicas y totales en vivo, y ficha con botones de estado.
 
 ### Feature 4 · Facturas ⏳
@@ -282,7 +288,7 @@ Requisitos:
 4. ✅ `server-only` importado en `session.ts` (el build falla si un componente cliente lo importa) y regla `@typescript-eslint/no-unused-vars` con el patrón `^_` en `eslint.config.mjs` (el prefijo `_` = "no usado a propósito").
 5. ✅ **Verificación manual de la Feature 1** en local por el usuario (entrar, incógnito, dos ventanas, salir, usuario borrado sin bucle). Commit `605eb23` subido.
 6. ✅ **Feature 2 (Clientes)** terminada y verificada por el usuario (commit `cd87294`).
-8. 🟡 **Feature 3 (Presupuestos):** 3.2 aprobada; pendiente de aplicar.
+8. 🟡 **Feature 3 (Presupuestos):** 3.1-3.3 hechas; siguiente, 3.4 (interfaz).
 7. ⏳ Diseño: `globals.css` conserva de la plantilla `font-family: Arial, Helvetica` y sobrescribe Geist; revisarlo cuando se haga el diseño definitivo.
 
 ---

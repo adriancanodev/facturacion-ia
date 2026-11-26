@@ -83,12 +83,155 @@ export type Database = {
         }
         Relationships: []
       }
+      document_counters: {
+        Row: {
+          last_number: number
+          series: string
+          user_id: string
+          year: number
+        }
+        Insert: {
+          last_number: number
+          series: string
+          user_id?: string
+          year: number
+        }
+        Update: {
+          last_number?: number
+          series?: string
+          user_id?: string
+          year?: number
+        }
+        Relationships: []
+      }
+      quote_lines: {
+        Row: {
+          base: number
+          created_at: string
+          description: string
+          id: string
+          position: number
+          quantity: number
+          quote_id: string
+          unit_price: number
+          vat_rate: number
+        }
+        Insert: {
+          base: number
+          created_at?: string
+          description: string
+          id?: string
+          position: number
+          quantity: number
+          quote_id: string
+          unit_price: number
+          vat_rate: number
+        }
+        Update: {
+          base?: number
+          created_at?: string
+          description?: string
+          id?: string
+          position?: number
+          quantity?: number
+          quote_id?: string
+          unit_price?: number
+          vat_rate?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_lines_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quotes: {
+        Row: {
+          client_id: string
+          created_at: string
+          id: string
+          irpf_rate: number
+          irpf_total: number
+          issue_date: string
+          notes: string | null
+          number: string
+          status: string
+          subtotal: number
+          total: number
+          updated_at: string
+          user_id: string
+          valid_until: string | null
+          vat_total: number
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          id?: string
+          irpf_rate?: number
+          irpf_total: number
+          issue_date: string
+          notes?: string | null
+          number: string
+          status?: string
+          subtotal: number
+          total: number
+          updated_at?: string
+          user_id?: string
+          valid_until?: string | null
+          vat_total: number
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          id?: string
+          irpf_rate?: number
+          irpf_total?: number
+          issue_date?: string
+          notes?: string | null
+          number?: string
+          status?: string
+          subtotal?: number
+          total?: number
+          updated_at?: string
+          user_id?: string
+          valid_until?: string | null
+          vat_total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotes_client_id_user_id_fkey"
+            columns: ["client_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
       delete_my_demo_account: { Args: never; Returns: undefined }
+      save_quote: {
+        Args: {
+          p_client_id: string
+          p_irpf_rate: number
+          p_irpf_total: number
+          p_issue_date: string
+          p_lines: Json
+          p_notes: string
+          p_quote_id: string
+          p_subtotal: number
+          p_total: number
+          p_valid_until: string
+          p_vat_total: number
+        }
+        Returns: string
+      }
       seed_demo_data: { Args: never; Returns: undefined }
     }
     Enums: {
