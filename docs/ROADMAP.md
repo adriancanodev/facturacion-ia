@@ -74,7 +74,7 @@ Requisitos:
   - dos ventanas → cada una ve solo sus datos;
   - repetir en la URL de producción.
 
-### Feature 2 · Clientes 🟡
+### Feature 2 · Clientes ✅
 - Alta, edición, listado y búsqueda (nombre, NIF/CIF, email). **Sin borrado** en el MVP (ver D-B11).
 - Campos: nombre, NIF/CIF (`tax_id`) y dirección obligatorios; email y teléfono opcionales (ver D-B12).
 - Ampliar `seed_demo_data()` con unos 5 clientes de ejemplo.
@@ -108,8 +108,18 @@ Requisitos:
 - **Líneas:** descripción, cantidad, precio unitario y tipo de IVA (21/10/4/0 %). IRPF opcional (`irpf_rate`, 0 = sin retención).
 - **Estados:** borrador → enviado → aceptado / rechazado.
 - **Totales** calculados por `src/lib/domain/` (con tests) y guardados en la cabecera.
-- **Botón "Convertir en factura":** un presupuesto solo puede convertirse una vez (`invoices.quote_id unique`).
-- **Numeración simple** `P-2026-0001`: reutiliza los contadores de facturas con otra serie. Aquí los huecos no importan legalmente.
+- **Numeración simple** `P-2026-0001`, asignada al crear. Usa una tabla genérica `document_counters` que reutilizarán las facturas (ver D-B14). Aquí los huecos no importan legalmente.
+- **"Convertir en factura"** pasa a la Feature 4, porque necesita la tabla de facturas.
+- ✅ **3.1 Dominio de importes** (aprobada por `testing`; después simplificada a cantidades con 2 decimales; 338 tests en total):
+  - `money.ts`: `parseDecimalToHundredths` (texto → centésimas sin float; una sola escala, `DECIMAL_PLACES = 2`, para dinero, cantidad e IRPF), `divideRoundHalfUp` con bigint, `toDecimalString` (para `numeric`) y `formatCents` ("1.234,56 €");
+  - `quote-totals.ts`: `computeQuoteTotals` (bases, `vat_breakdown` 21/10/4/0, subtotal, `vat_total`, `irpf_total` y total), con comprobación de rango de `numeric(12,2)`;
+  - `quote.ts`: `quoteInputSchema` (errores `lines.N.campo`) y `quoteFormDataToInput` (FormData `lines[i][campo]`);
+  - `quote-status.ts`: transiciones, `isEditable`/`isDeletable` y etiquetas.
+  - Para la 3.3/3.4: supabase-js devuelve `numeric` como número JSON → pasarlo por `String()` + el parser; "1.234" se rechaza por tener 3 decimales (no hay separador de miles); `computeQuoteTotals` lanza con datos inválidos (en vivo, calcular solo lo válido).
+  - Endurecimientos posibles (no aplicados): limitar la longitud del texto numérico antes de `BigInt` y los dígitos del índice de línea.
+- ⏳ **3.2 Migración:** `document_counters`, `quotes`, `quote_lines`, `save_quote()` (atómica) y seed.
+- ⏳ **3.3 Server Actions:** crear, editar (solo borrador), cambiar de estado y borrar (solo borrador).
+- ⏳ **3.4 Interfaz:** listado, editor con líneas dinámicas y totales en vivo, y ficha con botones de estado.
 
 ### Feature 4 · Facturas ⏳
 - **Numeración correlativa por serie y año** (`2026-0001`), **sin huecos**: la función de Postgres `issue_invoice(id)` (ver D-B1).
@@ -192,7 +202,7 @@ Requisitos:
 - **D-B4 · "Vencida" no se guarda, se calcula.** Así no hace falta un proceso nocturno y siempre es correcto.
 - **D-B5 · `client_snapshot jsonb` al emitir.** Si el cliente cambia después, la factura emitida conserva los datos que tenía.
 - **D-B6 · RLS de las líneas a través de la tabla padre.** Las líneas no llevan `user_id`: la política comprueba con `exists` que la factura o el presupuesto es del usuario. Hay un índice por la FK.
-- **D-B7 · Dinero en `numeric(12,2)`, cantidades en `numeric(12,3)`.** `check` en IVA (0/4/10/21), en IRPF (0–100) y en los estados.
+- **D-B7 · Dinero en `numeric(12,2)` y cantidades también en `numeric(12,2)`** (antes `numeric(12,3)`; el usuario consideró sobreingeniería el tercer decimal para el MVP). `check` en IVA (0/4/10/21), en IRPF (0–100) y en los estados.
 - **D-B8 · `business_profiles` (emisor):**
   - `name`, `tax_id` (NIF/CIF, **no son impuestos**) y `address` son obligatorios, porque lo exige el RD 1619/2012, art. 6;
   - `email` y `phone` son opcionales: van en el PDF y el teléfono podría usarse con WhatsApp.
@@ -213,6 +223,15 @@ Requisitos:
   - La dirección es un solo campo de texto obligatorio, como en `business_profiles`.
 - **D-B13 · Búsqueda con un formulario GET (`/clientes?q=`).**
   - **Por qué:** funciona sin JS, la URL se puede compartir y la consulta se hace en el servidor. La búsqueda mientras se escribe queda como mejora posible.
+
+- **D-B14 · Cálculo del dinero en enteros (céntimos) con redondeo half-up.**
+  - **Por qué:** con coma flotante, `0.1 + 0.2 ≠ 0.3`. Los precios van en céntimos y las cantidades en centésimas (la misma escala × 100), y solo se redondea en puntos definidos.
+  - Base de cada línea redondeada a céntimos; IVA por tipo sobre la suma de bases de ese tipo (desglose por tipo, RD 1619/2012, art. 6); IRPF sobre la base total; total = base + IVA − IRPF.
+  - IRPF: un tipo por presupuesto; en la interfaz, 0 %, 7 % y 15 % (la BD admite 0–100, D-B7).
+  - El servidor recalcula siempre los totales; nunca se fía de los que llegan del formulario. El mismo código puro muestra los totales en vivo en el navegador.
+- **D-B15 · `save_quote()` en SQL para guardar cabecera y líneas de forma atómica** (security invoker, pasa por la RLS). Los totales los calcula TS; la función solo los guarda en una transacción.
+- **D-B16 · Tabla genérica `document_counters (user_id, series, year, last_number)`** para la numeración. Presupuestos con la serie `P`; las facturas la reutilizarán.
+- **D-B17 · Estados del presupuesto:** `draft → sent → accepted | rejected`. Solo se edita y se borra en borrador. Las transiciones válidas son una función del dominio con tests.
 
 ### C. Infraestructura
 - **D-C1 · Funciones de Vercel en `arn1` (Estocolmo)**, junto a Supabase (`eu-north-1`), fijadas en `vercel.json`.
@@ -246,8 +265,8 @@ Requisitos:
 3. ✅ **Feature 1.4: proxy.** ✅ **1.5: interfaz mínima.**
 4. ✅ `server-only` importado en `session.ts` (el build falla si un componente cliente lo importa) y regla `@typescript-eslint/no-unused-vars` con el patrón `^_` en `eslint.config.mjs` (el prefijo `_` = "no usado a propósito").
 5. ✅ **Verificación manual de la Feature 1** en local por el usuario (entrar, incógnito, dos ventanas, salir, usuario borrado sin bucle). Commit `605eb23` subido.
-6. 🟡 **Feature 2 (Clientes):** corrección de Activity aprobada; falta la verificación del usuario en el navegador.
-8. 🟡 **Feature 3 (Presupuestos):** en planificación.
+6. ✅ **Feature 2 (Clientes)** terminada y verificada por el usuario (commit `cd87294`).
+8. 🟡 **Feature 3 (Presupuestos):** siguiente, 3.2 (migración).
 7. ⏳ Diseño: `globals.css` conserva de la plantilla `font-family: Arial, Helvetica` y sobrescribe Geist; revisarlo cuando se haga el diseño definitivo.
 
 ---

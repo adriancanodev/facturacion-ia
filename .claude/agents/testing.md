@@ -86,7 +86,7 @@ Son de obligado cumplimiento para `develop`. Cada una tiene un ID para citarla e
 | ID | Directriz | Cómo se verifica |
 |---|---|---|
 | D20 | Los cambios de esquema van en una **migración nueva** (`supabase/migrations/<timestamp>_<nombre>.sql`). **Nunca** se edita una migración ya aplicada. | `npm run migration-list` + `git diff` de migraciones antiguas |
-| D21 | Dinero en `numeric(12,2)` y cantidades en `numeric(12,3)`, nunca `float` ni `real`. Restricciones `check` para los valores cerrados (IVA 0/4/10/21, estados). Si la feature añade datos, `seed_demo_data()` se amplía. | Lectura de la migración |
+| D21 | Dinero y cantidades en `numeric(12,2)`, nunca `float` ni `real`. Restricciones `check` para los valores cerrados (IVA 0/4/10/21, estados). Si la feature añade datos, `seed_demo_data()` se amplía. | Lectura de la migración |
 
 ## Interfaz
 | ID | Directriz | Cómo se verifica |
