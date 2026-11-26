@@ -78,8 +78,15 @@ Requisitos:
 - Alta, edición, listado y búsqueda (nombre, NIF/CIF, email). **Sin borrado** en el MVP (ver D-B11).
 - Campos: nombre, NIF/CIF (`tax_id`) y dirección obligatorios; email y teléfono opcionales (ver D-B12).
 - Ampliar `seed_demo_data()` con unos 5 clientes de ejemplo.
-- 🟡 **2.1 Migración `clients`** (`20261125130237_clients.sql`) + ampliar `seed_demo_data()` con 5 clientes. Aprobada por `testing`, que la ensayó en un Postgres local desechable (RLS, sin delete/truncate, cascade y seed idempotente). Pendiente: el usuario la aplica y se regeneran los tipos.
-- ⏳ **2.2 Dominio:** validación del formato de NIF/NIE/CIF y esquema Zod del cliente. Instala Zod y Vitest, con tests.
+- ✅ **2.1 Migración `clients`** (`20261125130237_clients.sql`) + ampliar `seed_demo_data()` con 5 clientes. Aprobada por `testing`, que la ensayó en un Postgres local desechable (RLS, sin delete/truncate, cascade y seed idempotente). ✅ Aplicada en remoto. Nota: los dos CIF de ejemplo (`B76543219`, `B87654328`) tienen el dígito de control mal calculado; se mantienen por decisión del usuario, ya que D-B12 no lo comprueba. Si algún día se valida, habrá que corregirlos en una migración nueva. Pendiente: regenerar los tipos (se hace al empezar la 2.2).
+- ✅ **2.2 Dominio** (aprobada por `testing` en la vuelta 1):
+  - tipos regenerados con el nuevo script `npm run types`;
+  - Zod 4.6.7 y Vitest 4.1.12 (`vitest.config.mts`, `npm test`);
+  - `src/lib/domain/tax-id.ts`: `normalizeTaxId` e `isValidSpanishTaxIdFormat` (NIF, NIE y CIF; letra final entre las 23 de control, sin calcularla);
+  - `src/lib/domain/client.ts`: `clientInputSchema` (trim, `""` → `null` en email/teléfono, mensajes en español, descarta claves extra);
+  - 92 tests.
+  - Nota: Vitest 5 exige `@types/node` ≥22 (el proyecto tiene ^20). Instalar Vitest con npm 10.9 falla (`edgesOut`); se instaló con `npx npm@11`, y el lock es reproducible con `npm ci` de npm 10 (comprobado).
+  - Mejora posible: un DNI sin el cero inicial (`1234567L`) se rechaza; se podría rellenar con ceros o explicarlo en el mensaje.
 - ⏳ **2.3 Server Actions** `createClient` y `updateClient` (`requireUser()` + Zod).
 - ⏳ **2.4 Interfaz:** `/clientes` (listado + búsqueda GET `?q=`), `/clientes/nuevo`, `/clientes/[id]/editar` y enlace desde el dashboard.
   - Trampa: escapar la entrada de la búsqueda en `.or(...)` de PostgREST (comas y paréntesis) y los comodines `%`/`_` de `ilike`.
@@ -189,6 +196,7 @@ Requisitos:
 - **D-B12 · `tax_id` obligatorio, único por usuario, solo formatos españoles y sin comprobar el dígito de control.**
   - **Por qué:** obligatorio porque una factura completa exige el NIF del destinatario (RD 1619/2012, art. 6). Se valida el **formato** (NIF, NIE, CIF), pero **no** el cálculo de la letra o dígito de control (decisión del usuario). Se normaliza (mayúsculas, sin espacios ni guiones) para que `unique (user_id, tax_id)` funcione.
   - Los clientes extranjeros (NIF-IVA intracomunitario) quedan fuera de alcance (README).
+  - No se aceptan los NIF K/L/M (menores, residentes en el extranjero y extranjeros sin NIE). El usuario lo considera sobreingeniería para la demo.
   - La dirección es un solo campo de texto obligatorio, como en `business_profiles`.
 - **D-B13 · Búsqueda con un formulario GET (`/clientes?q=`).**
   - **Por qué:** funciona sin JS, la URL se puede compartir y la consulta se hace en el servidor. La búsqueda mientras se escribe queda como mejora posible.
@@ -217,7 +225,7 @@ Requisitos:
 3. ✅ **Feature 1.4: proxy.** ✅ **1.5: interfaz mínima.**
 4. ✅ `server-only` importado en `session.ts` (el build falla si un componente cliente lo importa) y regla `@typescript-eslint/no-unused-vars` con el patrón `^_` en `eslint.config.mjs` (el prefijo `_` = "no usado a propósito").
 5. ✅ **Verificación manual de la Feature 1** en local por el usuario (entrar, incógnito, dos ventanas, salir, usuario borrado sin bucle). Commit `605eb23` subido.
-6. 🟡 **Feature 2 (Clientes):** siguiente, 2.1 (migración).
+6. 🟡 **Feature 2 (Clientes):** siguiente, 2.3 (Server Actions).
 7. ⏳ Diseño: `globals.css` conserva de la plantilla `font-family: Arial, Helvetica` y sobrescribe Geist; revisarlo cuando se haga el diseño definitivo.
 
 ---
