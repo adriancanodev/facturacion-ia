@@ -94,8 +94,12 @@ Requisitos:
   - Edición con `.bind(null, id)`: el id se valida como UUID (`.bind` no cifra) y 0 filas → "Cliente no encontrado".
   - `revalidatePath("/clientes", "layout")` antes del `redirect`, para invalidar la caché de atrás/adelante del router (ver D-C6).
   - Para la 2.4: el estado inicial del formulario de edición se construye desde la fila (`null` → `""`). Si se añade otro `unique` a `clients`, comprobar el nombre de la constraint en el `23505`.
-- ⏳ **2.4 Interfaz:** `/clientes` (listado + búsqueda GET `?q=`), `/clientes/nuevo`, `/clientes/[id]/editar` y enlace desde el dashboard.
-  - Trampa: escapar la entrada de la búsqueda en `.or(...)` de PostgREST (comas y paréntesis) y los comodines `%`/`_` de `ilike`.
+- ✅ **2.4 Interfaz** (aprobada por `testing` en la vuelta 1; falta la verificación manual):
+  - route group `src/app/(app)/` con un layout común (banner, cabecera con perfil + Salir y menú Panel · Clientes con enlace activo); `/dashboard` se ha movido dentro sin cambiar la URL (ver D-C7);
+  - `/clientes`: búsqueda con `next/form` (GET `?q=`), tabla en escritorio y tarjetas en móvil, y estados vacío, sin resultados y error;
+  - `/clientes/nuevo` y `/clientes/[id]/editar` con un `ClientForm` compartido; UUID validado antes de consultar y `notFound()` con `(app)/not-found.tsx` en español (con PPR la respuesta sale con 200 + `noindex`);
+  - búsqueda segura en `src/lib/domain/client-search.ts` (37 tests): `.or()` de postgrest-js no escapa nada, así que primero se escapan los comodines de LIKE y después se entrecomilla al estilo PostgREST; `*` se cambia por `_`. `testing` lo probó con 20.016 cadenas sin ninguna inyección.
+  - Mejoras posibles: test de `clientFormStateFromRow`; constante de longitud del `tax_id` en el dominio.
 
 ### Feature 3 · Presupuestos ⏳
 - **Líneas:** descripción, cantidad, precio unitario y tipo de IVA (21/10/4/0 %). IRPF opcional (`irpf_rate`, 0 = sin retención).
@@ -216,6 +220,8 @@ Requisitos:
   - Descartados: `"use cache: private"`, porque cachearía la comprobación de sesión (choca con D-A6); `io()`, porque se resuelve en silencio dentro de `"use cache"`, mientras que `connection()` da error y así protege. Desactivar `partialPrefetching` solo tapaba el síntoma.
 - **D-C6 · `revalidatePath` tras escribir, aunque no haya `"use cache"`.**
   - **Por qué:** el `redirect` ya trae el destino con datos frescos, pero el router del navegador guarda las páginas para atrás/adelante y solo las descarta si la acción revalida (`server-action-reducer.js`, `invalidateBfCache`). Sin él, "Atrás" mostraría datos viejos.
+- **D-C7 · Route group `(app)` con un layout común para el área privada.**
+  - **Por qué:** todas las features heredan la navegación y la cabecera. El layout **no** es la barrera de seguridad: no se vuelve a renderizar en cada navegación, así que cada página que lee datos llama a su propio `requireUser()`.
 - **D-C4 · Sin Docker:** las migraciones se aplican directamente al proyecto remoto con `npm run migration`. Solo las aplica el usuario.
 
 ### D. Proceso
@@ -233,7 +239,7 @@ Requisitos:
 3. ✅ **Feature 1.4: proxy.** ✅ **1.5: interfaz mínima.**
 4. ✅ `server-only` importado en `session.ts` (el build falla si un componente cliente lo importa) y regla `@typescript-eslint/no-unused-vars` con el patrón `^_` en `eslint.config.mjs` (el prefijo `_` = "no usado a propósito").
 5. ✅ **Verificación manual de la Feature 1** en local por el usuario (entrar, incógnito, dos ventanas, salir, usuario borrado sin bucle). Commit `605eb23` subido.
-6. 🟡 **Feature 2 (Clientes):** siguiente, 2.4 (interfaz).
+6. 🟡 **Feature 2 (Clientes):** 2.1-2.4 hechas; falta la verificación manual del usuario.
 7. ⏳ Diseño: `globals.css` conserva de la plantilla `font-family: Arial, Helvetica` y sobrescribe Geist; revisarlo cuando se haga el diseño definitivo.
 
 ---
