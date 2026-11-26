@@ -117,7 +117,14 @@ Requisitos:
   - `quote-status.ts`: transiciones, `isEditable`/`isDeletable` y etiquetas.
   - Para la 3.3/3.4: supabase-js devuelve `numeric` como número JSON → pasarlo por `String()` + el parser; "1.234" se rechaza por tener 3 decimales (no hay separador de miles); `computeQuoteTotals` lanza con datos inválidos (en vivo, calcular solo lo válido).
   - Endurecimientos posibles (no aplicados): limitar la longitud del texto numérico antes de `BigInt` y los dígitos del índice de línea.
-- ⏳ **3.2 Migración:** `document_counters`, `quotes`, `quote_lines`, `save_quote()` (atómica) y seed.
+- 🟡 **3.2 Migración** `20261126155847_quotes.sql` (aprobada por `testing`, que la ensayó en un Postgres local con concurrencia, aislamiento y cascade; pendiente de que el usuario la aplique y de regenerar los tipos):
+  - `document_counters`: sin acceso directo (RLS sin políticas + `revoke`); solo `private.next_document_number()` (security definer). Está en el esquema `private` para que PostgREST no la exponga y nadie pueda quemar números (ver D-B20);
+  - `quotes`: FK compuesta con `clients` (`on delete no action`, compatible con la cascada del usuario), checks de coherencia de totales y delete solo en `draft`;
+  - `quote_lines`: RLS vía el padre; insert/delete solo con el padre en `draft`; update/truncate revocados;
+  - `save_quote()` invoker. Errores: `P0001` `not_authenticated` / `quote_lines_required` (0 o más de 100 líneas) / `quote_not_editable`, y `23503` con un cliente ajeno;
+  - seed: P-0001 aceptado (1.678,24 €), P-0002 enviado (1.376,92 €) y P-0003 borrador (452,39 €); totales verificados con `computeQuoteTotals`.
+  - Mejora posible: un trigger que valide las transiciones y congele la cabecera fuera de `draft` (hoy un usuario puede saltárselas por la API directa en sus propios presupuestos; sin efecto legal). Será el mismo patrón que el bloqueo de facturas de la Feature 4.
+  - Para la 3.3: enviar siempre 2 decimales (`toDecimalString`), porque `numeric` redondearía en silencio.
 - ⏳ **3.3 Server Actions:** crear, editar (solo borrador), cambiar de estado y borrar (solo borrador).
 - ⏳ **3.4 Interfaz:** listado, editor con líneas dinámicas y totales en vivo, y ficha con botones de estado.
 
@@ -233,6 +240,15 @@ Requisitos:
 - **D-B16 · Tabla genérica `document_counters (user_id, series, year, last_number)`** para la numeración. Presupuestos con la serie `P`; las facturas la reutilizarán.
 - **D-B17 · Estados del presupuesto:** `draft → sent → accepted | rejected`. Solo se edita y se borra en borrador. Las transiciones válidas son una función del dominio con tests.
 
+- **D-B18 · Presupuestos y facturas en tablas separadas (`quotes`/`invoices`), con el código compartido.**
+  - **Por qué:** comparten líneas y totales, pero sus reglas son distintas: numeración (al crear frente a al emitir sin huecos), estados, fechas, bloqueo por triggers y `client_snapshot`. Con una tabla única con `type`, cada regla legal de las facturas se volvería condicional. Lo común se reutiliza en el dominio y en los componentes.
+  - Alternativa descartada: una tabla única con tipo (*single table inheritance*), propuesta por el usuario y valorada.
+- **D-B19 · FK compuesta `(client_id, user_id) → clients(id, user_id)` en los documentos.**
+  - **Por qué:** las comprobaciones de FK se saltan la RLS. Con una FK simple, un usuario podría apuntar al cliente de otro.
+
+- **D-B20 · Funciones internas en el esquema `private`.**
+  - **Por qué:** PostgREST solo expone `public` (y `graphql_public`). Lo que no debe llamarse por la API (p. ej. avanzar contadores) va en `private`. Cada función nueva en `private` debe hacer `revoke execute … from public, anon`, porque Postgres concede EXECUTE a PUBLIC por defecto.
+
 ### C. Infraestructura
 - **D-C1 · Funciones de Vercel en `arn1` (Estocolmo)**, junto a Supabase (`eu-north-1`), fijadas en `vercel.json`.
 - **D-C2 · Sin la integración Supabase de Vercel.** Ya existía un proyecto, los nombres de las variables no coinciden con los nuestros, e inyectaría la clave `service_role`.
@@ -266,7 +282,7 @@ Requisitos:
 4. ✅ `server-only` importado en `session.ts` (el build falla si un componente cliente lo importa) y regla `@typescript-eslint/no-unused-vars` con el patrón `^_` en `eslint.config.mjs` (el prefijo `_` = "no usado a propósito").
 5. ✅ **Verificación manual de la Feature 1** en local por el usuario (entrar, incógnito, dos ventanas, salir, usuario borrado sin bucle). Commit `605eb23` subido.
 6. ✅ **Feature 2 (Clientes)** terminada y verificada por el usuario (commit `cd87294`).
-8. 🟡 **Feature 3 (Presupuestos):** siguiente, 3.2 (migración).
+8. 🟡 **Feature 3 (Presupuestos):** 3.2 aprobada; pendiente de aplicar.
 7. ⏳ Diseño: `globals.css` conserva de la plantilla `font-family: Arial, Helvetica` y sobrescribe Geist; revisarlo cuando se haga el diseño definitivo.
 
 ---
