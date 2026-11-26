@@ -36,7 +36,7 @@ async function EditClientForm({
 
   const { data: client, error } = await supabase
     .from("clients")
-    .select("id, name, tax_id, address, email, phone")
+    .select("id, name, tax_id, address, email, phone, updated_at")
     .eq("id", clientId.data)
     .maybeSingle();
 
@@ -56,6 +56,7 @@ async function EditClientForm({
 
   return (
     <ClientForm
+      key={`${client.id}:${client.updated_at}`}
       action={updateClientAction.bind(null, client.id)}
       initialState={clientFormStateFromRow(client)}
       submitLabel="Guardar cambios"

@@ -30,9 +30,10 @@ Reglas de Next.js 16 para agentes (generadas por `next dev`, de obligado cumplim
 ### Estado actual
 - ✅ Vercel desplegado y público, funciones en la región `arn1`. Supabase en `eu-north-1`, con la CLI vinculada.
 - ✅ **Feature 1, acceso demo:** usuario anónimo + `seed_demo_data()`, Server Actions `startDemo`/`endDemo`, `requireUser()`, proxy con redirecciones, portada estática y `/dashboard` provisional (PPR).
-- 🟡 **Feature 2, clientes:** en planificación.
+- ✅ **Feature 2, clientes:** tabla `clients` con RLS (sin borrado), validación NIF/NIE/CIF en el dominio (Zod + Vitest), Server Actions y UI en el route group `(app)` (listado con búsqueda segura, alta y edición).
+- 🟡 **Feature 3, presupuestos:** en planificación.
 - ⏳ **Pendiente:**
-  - presupuestos → facturas → PDF → panel → IA → integraciones;
+  - facturas → PDF → panel → IA → integraciones;
   - responsive y tests e2e;
   - README.
 

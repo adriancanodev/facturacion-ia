@@ -100,8 +100,11 @@ Requisitos:
   - `/clientes/nuevo` y `/clientes/[id]/editar` con un `ClientForm` compartido; UUID validado antes de consultar y `notFound()` con `(app)/not-found.tsx` en español (con PPR la respuesta sale con 200 + `noindex`);
   - búsqueda segura en `src/lib/domain/client-search.ts` (37 tests): `.or()` de postgrest-js no escapa nada, así que primero se escapan los comodines de LIKE y después se entrecomilla al estilo PostgREST; `*` se cambia por `_`. `testing` lo probó con 20.016 cadenas sin ninguna inyección.
   - Mejoras posibles: test de `clientFormStateFromRow`; constante de longitud del `tax_id` en el dominio.
+- ✅ **Corrección de la 2.4: formularios con datos viejos por `<Activity>`** (ver D-C8). Bug encontrado por el usuario: al editar varias veces, el formulario mezclaba valores viejos y nuevos.
+  - Edición: `key={id:updated_at}` en `ClientForm`.
+  - Segundo bug del usuario: un NIF erróneo, "Cancelar" y al volver seguía el valor erróneo. Se cambia a descartar siempre lo no guardado al salir (ver D-C8).
 
-### Feature 3 · Presupuestos ⏳
+### Feature 3 · Presupuestos 🟡
 - **Líneas:** descripción, cantidad, precio unitario y tipo de IVA (21/10/4/0 %). IRPF opcional (`irpf_rate`, 0 = sin retención).
 - **Estados:** borrador → enviado → aceptado / rechazado.
 - **Totales** calculados por `src/lib/domain/` (con tests) y guardados en la cabecera.
@@ -222,6 +225,10 @@ Requisitos:
   - **Por qué:** el `redirect` ya trae el destino con datos frescos, pero el router del navegador guarda las páginas para atrás/adelante y solo las descarta si la acción revalida (`server-action-reducer.js`, `invalidateBfCache`). Sin él, "Atrás" mostraría datos viejos.
 - **D-C7 · Route group `(app)` con un layout común para el área privada.**
   - **Por qué:** todas las features heredan la navegación y la cabecera. El layout **no** es la barrera de seguridad: no se vuelve a renderizar en cada navegación, así que cada página que lee datos llama a su propio `requireUser()`.
+- **D-C8 · Next 16 conserva las páginas con `<Activity>`: los formularios se resetean con `key`.**
+  - **Por qué:** con Cache Components, al navegar la página se oculta y no se desmonta (`preserving-ui-state.md`), y se conservan el estado de React y el DOM de los inputs. Un input no controlado que el usuario ya tocó ignora un `defaultValue` nuevo.
+  - **Los formularios no conservan borradores** (decisión del usuario): al salir, por cualquier vía, se descarta lo no guardado. Al ocultarse, el formulario se vuelve a montar. Edición: además `key` derivada de `updated_at`, para que `useActionState` arranque con los datos frescos.
+  - En los e2e, localizar los elementos con `getByRole`/visibles, porque Activity deja el DOM oculto en la página.
 - **D-C4 · Sin Docker:** las migraciones se aplican directamente al proyecto remoto con `npm run migration`. Solo las aplica el usuario.
 
 ### D. Proceso
@@ -239,7 +246,8 @@ Requisitos:
 3. ✅ **Feature 1.4: proxy.** ✅ **1.5: interfaz mínima.**
 4. ✅ `server-only` importado en `session.ts` (el build falla si un componente cliente lo importa) y regla `@typescript-eslint/no-unused-vars` con el patrón `^_` en `eslint.config.mjs` (el prefijo `_` = "no usado a propósito").
 5. ✅ **Verificación manual de la Feature 1** en local por el usuario (entrar, incógnito, dos ventanas, salir, usuario borrado sin bucle). Commit `605eb23` subido.
-6. 🟡 **Feature 2 (Clientes):** 2.1-2.4 hechas; falta la verificación manual del usuario.
+6. 🟡 **Feature 2 (Clientes):** corrección de Activity aprobada; falta la verificación del usuario en el navegador.
+8. 🟡 **Feature 3 (Presupuestos):** en planificación.
 7. ⏳ Diseño: `globals.css` conserva de la plantilla `font-family: Arial, Helvetica` y sobrescribe Geist; revisarlo cuando se haga el diseño definitivo.
 
 ---
