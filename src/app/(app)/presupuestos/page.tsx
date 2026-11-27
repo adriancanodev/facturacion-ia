@@ -13,9 +13,17 @@ const linkClassName =
 export default function QuotesPage() {
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
-        Presupuestos
-      </h1>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+          Presupuestos
+        </h1>
+        <Link
+          href="/presupuestos/nuevo"
+          className="inline-flex h-11 items-center justify-center rounded-full bg-zinc-900 px-5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300 dark:focus-visible:outline-zinc-100"
+        >
+          Nuevo presupuesto
+        </Link>
+      </div>
 
       <Suspense fallback={<QuoteListSkeleton />}>
         <QuoteList />

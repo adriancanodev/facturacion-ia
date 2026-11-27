@@ -8,7 +8,12 @@ import { requireUser } from "@/lib/auth/session";
 import { formatIsoDate } from "@/lib/domain/date";
 import { formatCents } from "@/lib/domain/money";
 import { hundredthsToCompactText, numericToHundredths } from "@/lib/domain/quote-form";
-import { isDeletable, nextStatuses, parseQuoteStatus } from "@/lib/domain/quote-status";
+import {
+  isDeletable,
+  isEditable,
+  nextStatuses,
+  parseQuoteStatus,
+} from "@/lib/domain/quote-status";
 import { buildQuoteSummary, type QuoteSummary } from "@/lib/domain/quote-summary";
 import { changeQuoteStatusAction, deleteQuoteAction } from "@/lib/quotes/actions";
 import type { Tables } from "@/types/database";
@@ -19,6 +24,9 @@ type QuoteLineRow = Pick<
   Tables<"quote_lines">,
   "id" | "description" | "quantity" | "unit_price" | "vat_rate" | "base"
 >;
+
+const editLinkClassName =
+  "inline-flex h-11 items-center justify-center rounded-full border border-zinc-300 px-5 text-sm font-medium text-zinc-900 transition-colors hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 dark:border-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-800 dark:focus-visible:outline-zinc-100";
 
 const linkClassName =
   "font-medium text-zinc-900 underline underline-offset-2 hover:text-zinc-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 dark:text-zinc-50 dark:hover:text-zinc-300 dark:focus-visible:outline-zinc-100";
@@ -95,6 +103,15 @@ async function QuoteDetail({ params }: { params: PageProps<"/presupuestos/[id]">
             Presupuesto {quote.number}
           </h1>
           <QuoteStatusBadge status={status} />
+          {isEditable(status) && (
+            <Link
+              href={`/presupuestos/${quote.id}/editar`}
+              aria-label={`Editar el presupuesto ${quote.number}`}
+              className={`${editLinkClassName} sm:ml-auto`}
+            >
+              Editar
+            </Link>
+          )}
         </div>
 
         <dl className="grid gap-4 rounded-lg border border-zinc-200 bg-white p-4 text-sm sm:grid-cols-2 dark:border-zinc-800 dark:bg-zinc-900">
