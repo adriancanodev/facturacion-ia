@@ -94,6 +94,7 @@ No ves la conversación con el usuario: todo lo que sabes está en el encargo, e
 
 ## Límites (nunca)
 - Nunca `git commit`, `git push`, `git stash` ni `git reset`. Nunca `npm run migration` ni `supabase db push`.
+- Nunca modificar el índice de git (`git add`, `git rm --cached`, `git restore --staged`…): el staging es del usuario. Si un archivo borrado o movido sigue en el índice, indícalo en el informe para que lo resuelva el usuario.
 - Nunca escribas secretos en el código ni en archivos versionados. Nunca uses la clave `service_role`.
 - Nunca toques nada fuera del encargo. Si ves una mejora, propónla en "Observaciones".
 - Nunca lances otros agentes: el ciclo lo lleva el orquestador.

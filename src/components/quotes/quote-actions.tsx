@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, type SubmitEvent } from "react";
+import { useActionState, useRef, useState } from "react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { QuoteStatus } from "@/lib/domain/quote-status";
 import { initialQuoteActionState, type QuoteActionState } from "@/lib/quotes/types";
 
@@ -47,15 +48,7 @@ export function QuoteActions({ quoteNumber, transitions, deleteAction }: QuoteAc
           className={primaryButtonClassName}
         />
       ))}
-      {deleteAction && (
-        <ActionForm
-          action={deleteAction}
-          label="Borrar"
-          pendingLabel="Borrando…"
-          className={dangerButtonClassName}
-          confirmMessage={`¿Seguro que quieres borrar el presupuesto ${quoteNumber}? Esta acción no se puede deshacer.`}
-        />
-      )}
+      {deleteAction && <DeleteQuoteButton action={deleteAction} quoteNumber={quoteNumber} />}
     </section>
   );
 }
@@ -65,20 +58,13 @@ type ActionFormProps = {
   label: string;
   pendingLabel: string;
   className: string;
-  confirmMessage?: string;
 };
 
-function ActionForm({ action, label, pendingLabel, className, confirmMessage }: ActionFormProps) {
+function ActionForm({ action, label, pendingLabel, className }: ActionFormProps) {
   const [state, formAction, pending] = useActionState(action, initialQuoteActionState);
 
-  function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
-    if (confirmMessage && !window.confirm(confirmMessage)) {
-      event.preventDefault();
-    }
-  }
-
   return (
-    <form action={formAction} onSubmit={handleSubmit} className="flex flex-col gap-2">
+    <form action={formAction} className="flex flex-col gap-2">
       <button type="submit" disabled={pending} className={className}>
         {pending ? pendingLabel : label}
       </button>
@@ -91,5 +77,60 @@ function ActionForm({ action, label, pendingLabel, className, confirmMessage }: 
         </p>
       )}
     </form>
+  );
+}
+
+type DeleteQuoteButtonProps = {
+  action: QuoteAction;
+  quoteNumber: string;
+};
+
+function DeleteQuoteButton({ action, quoteNumber }: DeleteQuoteButtonProps) {
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  function handleClose() {
+    setOpen(false);
+    triggerRef.current?.focus();
+  }
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        aria-haspopup="dialog"
+        onClick={() => setOpen(true)}
+        className={dangerButtonClassName}
+      >
+        Borrar
+      </button>
+      {open && (
+        <DeleteQuoteDialog action={action} quoteNumber={quoteNumber} onClose={handleClose} />
+      )}
+    </>
+  );
+}
+
+type DeleteQuoteDialogProps = DeleteQuoteButtonProps & {
+  onClose: () => void;
+};
+
+function DeleteQuoteDialog({ action, quoteNumber, onClose }: DeleteQuoteDialogProps) {
+  const [state, formAction, pending] = useActionState(action, initialQuoteActionState);
+
+  return (
+    <ConfirmDialog
+      open
+      title={`¿Borrar el presupuesto ${quoteNumber}?`}
+      description="Esta acción no se puede deshacer."
+      confirmLabel="Borrar"
+      pendingLabel="Borrando…"
+      pending={pending}
+      error={state.error}
+      formAction={formAction}
+      onClose={onClose}
+      confirmButtonClassName={dangerButtonClassName}
+    />
   );
 }

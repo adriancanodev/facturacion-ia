@@ -104,7 +104,7 @@ Requisitos:
   - Edición: `key={id:updated_at}` en `ClientForm`.
   - Segundo bug del usuario: un NIF erróneo, "Cancelar" y al volver seguía el valor erróneo. Se cambia a descartar siempre lo no guardado al salir (ver D-C8).
 
-### Feature 3 · Presupuestos 🟡
+### Feature 3 · Presupuestos ✅
 - **Líneas:** descripción, cantidad, precio unitario y tipo de IVA (21/10/4/0 %). IRPF opcional (`irpf_rate`, 0 = sin retención).
 - **Estados:** borrador → enviado → aceptado / rechazado.
 - **Totales** calculados por `src/lib/domain/` (con tests) y guardados en la cabecera.
@@ -132,7 +132,25 @@ Requisitos:
   - `src/lib/domain/quote-form.ts`: valores del formulario como texto, errores por línea y `numeric` → texto sin float (`String()` + parser).
   - El cast en `callSaveQuote` está justificado: los tipos generados marcan los `numeric` como `number` y no admiten null. `testing` comprobó los 11 parámetros a mano contra el SQL. Mejora posible: una aserción de tipo de las claves, o `default null` en una migración futura.
   - Para la 3.4: poner la fecha de hoy por defecto; pintar al menos una línea si llega `lines: []`.
-- ⏳ **3.4 Interfaz:** listado, editor con líneas dinámicas y totales en vivo, y ficha con botones de estado.
+- ✅ **3.4a Listado y ficha** (commit `7a2db80`; aprobada por `testing`):
+  - `/presupuestos` (tarjetas en móvil, tabla desde `md`) y `/presupuestos/[id]` (cabecera, líneas, resumen y botones de estado según `nextStatuses()`);
+  - el desglose de IVA por tipo no se guarda: lo recalcula `buildQuoteSummary` con `computeQuoteTotals`; si no cuadra con `vat_total`, se muestra lo guardado;
+  - `parseQuoteStatus` al leer: un estado fuera del `check` es dato corrupto → error (sin rama "estado desconocido" en la UI; ver D-B21);
+  - `date.ts`: `formatIsoDate` (DD/MM/AAAA) e `isoDateInTimeZone` ("hoy" en `Europe/Madrid`).
+- ✅ **3.4b Editor** (commit `9cf5912`; aprobada por `testing`):
+  - `/presupuestos/nuevo` y `/presupuestos/[id]/editar` (solo borradores; si no, aviso con enlace a la ficha);
+  - `src/components/quotes/quote-form/` dividido por responsabilidad (director, hook `use-quote-editor` con reducer testeado, cabecera, líneas, fila, resumen en vivo y resumen de errores);
+  - envío con `preventDefault` + `startTransition(formAction)` para evitar el reseteo de formularios de React 19 (ver D-B22);
+  - totales en vivo con `computeLiveQuoteTotals` (solo líneas válidas, nunca lanza); el servidor recalcula siempre;
+  - IRPF 0/7/15 % en la UI más el valor guardado si es otro (`buildIrpfRateOptions`).
+- ✅ **3.4c Modal de confirmación de borrado** (aprobada por `testing`): `src/components/ui/confirm-dialog.tsx`, genérico sobre `<dialog>` nativo, reutilizable en facturas. Sustituye a `window.confirm` (decisión del usuario).
+- **Mejoras posibles (no aplicadas):**
+  - `src/app/(app)/error.tsx` en español con "Reintentar" (hoy un error muestra la pantalla genérica de Next, en inglés, sin datos técnicos);
+  - `not-found.tsx` de `(app)` genérico (hoy dice siempre "Volver a clientes");
+  - editor: campos `readOnly` mientras se guarda y foco al resumen de errores tras un fallo del servidor;
+  - modal: ignorar el arrastre que empieza dentro y termina en el fondo; blindar el respaldo de `showModal()` con `isConnected`;
+  - trigger en BD que valide transiciones y congele la cabecera fuera de `draft` (ver 3.2);
+  - e2e del flujo crear/editar/borrar cuando haya Playwright (Feature 9).
 
 ### Feature 4 · Facturas ⏳
 - **Numeración correlativa por serie y año** (`2026-0001`), **sin huecos**: la función de Postgres `issue_invoice(id)` (ver D-B1).
@@ -254,6 +272,12 @@ Requisitos:
 
 - **D-B20 · Funciones internas en el esquema `private`.**
   - **Por qué:** PostgREST solo expone `public` (y `graphql_public`). Lo que no debe llamarse por la API (p. ej. avanzar contadores) va en `private`. Cada función nueva en `private` debe hacer `revoke execute … from public, anon`, porque Postgres concede EXECUTE a PUBLIC por defecto.
+- **D-B21 · Los estados se validan al leer (`parseQuoteStatus`) y un valor inválido lanza un error.**
+  - **Por qué:** el `check` de la BD lo hace imposible, pero los tipos generados lo exponen como `string`. Es mejor fallar a la vista que pintar un estado ficticio.
+  - Descartado: migrar a un `enum` de Postgres, porque es incómodo de modificar y solo hay 4 estados fijos (D-B17).
+- **D-B22 · Formularios con líneas dinámicas: campos controlados y envío con `preventDefault` + `startTransition(formAction)`.**
+  - **Por qué:** React 19 resetea los formularios tras una action. Así se evita y, si el servidor devuelve errores, el editor carga `state.values`. Se mantiene `action={formAction}` como respaldo sin JS.
+  - Las keys de las líneas son `line-N` con un contador que solo crece, no el índice.
 
 ### C. Infraestructura
 - **D-C1 · Funciones de Vercel en `arn1` (Estocolmo)**, junto a Supabase (`eu-north-1`), fijadas en `vercel.json`.
@@ -275,6 +299,11 @@ Requisitos:
 ### D. Proceso
 - **D-D1 · Historial honesto.** El setup inicial (Next, Supabase, Vercel y la migración `demo_access`) se hizo manualmente. Desde el commit `feat: sistema de agentes orquestador, develop y testing`, el desarrollo pasa por el ciclo Orquestador → Develop → Testing. **No se reescribe el historial.**
 - **D-D2 · El código anterior a los agentes se audita con `testing`** contra las directrices, en lugar de rehacerse.
+- **D-D3 · `develop` no toca el índice de git** (`git add`, `git rm --cached`…), regla en `.claude/agents/develop.md`.
+  - **Por qué:** en la 3.4b `develop` hizo `git rm --cached` para no dejar un test borrado en el staging. Era correcto, pero el staging es del usuario.
+- **D-D4 · Los encargos incluyen los helpers del dominio ya existentes del área que tocan.**
+  - **Por qué:** en la 3.4b se creó `local-date.ts` sin saber que existía `date.ts` (los subagentes empiezan sin contexto). Se fusionaron.
+- **D-D5 · Antes de refactorizar algo sin commit, el usuario hace `git add`** para que `testing` tenga una referencia exacta con la que comparar.
 
 ---
 
@@ -288,7 +317,8 @@ Requisitos:
 4. ✅ `server-only` importado en `session.ts` (el build falla si un componente cliente lo importa) y regla `@typescript-eslint/no-unused-vars` con el patrón `^_` en `eslint.config.mjs` (el prefijo `_` = "no usado a propósito").
 5. ✅ **Verificación manual de la Feature 1** en local por el usuario (entrar, incógnito, dos ventanas, salir, usuario borrado sin bucle). Commit `605eb23` subido.
 6. ✅ **Feature 2 (Clientes)** terminada y verificada por el usuario (commit `cd87294`).
-8. 🟡 **Feature 3 (Presupuestos):** 3.1-3.3 hechas; siguiente, 3.4 (interfaz).
+8. ✅ **Feature 3 (Presupuestos)** terminada y verificada por el usuario (3.1-3.4c; el modal está pendiente de commit).
+9. ⏳ **Feature 4 (Facturas):** siguiente. Planificar con el usuario antes de delegar; reutilizar el dominio de líneas/totales, el editor `quote-form/` y `ConfirmDialog` (D-B18).
 7. ⏳ Diseño: `globals.css` conserva de la plantilla `font-family: Arial, Helvetica` y sobrescribe Geist; revisarlo cuando se haga el diseño definitivo.
 
 ---
