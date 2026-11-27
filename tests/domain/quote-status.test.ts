@@ -8,6 +8,7 @@ import {
   isEditable,
   isQuoteStatus,
   nextStatuses,
+  parseQuoteStatus,
   type QuoteStatus,
 } from "@/lib/domain/quote-status";
 
@@ -67,6 +68,16 @@ describe("isQuoteStatus", () => {
 
   it.each(["", "Draft", "paid", "borrador"])("rechaza %j", (value) => {
     expect(isQuoteStatus(value)).toBe(false);
+  });
+});
+
+describe("parseQuoteStatus", () => {
+  it.each(QUOTE_STATUSES)("devuelve %s tal cual", (status) => {
+    expect(parseQuoteStatus(status)).toBe(status);
+  });
+
+  it.each(["paid", "", "Draft"])("lanza con %j", (value) => {
+    expect(() => parseQuoteStatus(value)).toThrow(/estado de presupuesto no válido/);
   });
 });
 

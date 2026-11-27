@@ -8,6 +8,7 @@ import { requireUser } from "@/lib/auth/session";
 const NAV_ITEMS = [
   { href: "/dashboard", segment: "dashboard", label: "Panel" },
   { href: "/clientes", segment: "clientes", label: "Clientes" },
+  { href: "/presupuestos", segment: "presupuestos", label: "Presupuestos" },
 ] as const;
 
 const navLinkClassName =

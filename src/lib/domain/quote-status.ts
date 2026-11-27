@@ -19,6 +19,13 @@ export function isQuoteStatus(value: string): value is QuoteStatus {
   return (QUOTE_STATUSES as readonly string[]).includes(value);
 }
 
+export function parseQuoteStatus(value: string): QuoteStatus {
+  if (!isQuoteStatus(value)) {
+    throw new Error(`parseQuoteStatus: estado de presupuesto no válido: ${JSON.stringify(value)}`);
+  }
+  return value;
+}
+
 export function canTransition(from: QuoteStatus, to: QuoteStatus): boolean {
   return ALLOWED_TRANSITIONS[from].includes(to);
 }
